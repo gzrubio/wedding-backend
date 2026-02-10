@@ -77,7 +77,8 @@ app.get('/api/rsvp', (req: Request, res: Response) => {
 
   // Convert can_attend from integer to boolean
   const formattedRsvps = rsvps.map((rsvp: any) => ({
-    ...rsvp,
+    id: rsvp.id,
+    name: rsvp.name,
     canAttend: rsvp.can_attend === 1,
     dietaryRestrictions: rsvp.dietary_restrictions,
     whereStaying: rsvp.where_staying,
