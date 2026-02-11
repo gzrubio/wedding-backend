@@ -1,4 +1,4 @@
-name: Deploy to Server (rsync)
+name: Deploy to Server
 
 on:
   push:
@@ -32,7 +32,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "dist/,package.json,package-lock.json"
-          target: "/var/www/wedding-backend"
+          target: "/home/wedding-backend/app"
 
       - name: Install and restart on server
         uses: appleboy/ssh-action@v1.0.3
@@ -41,7 +41,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd /var/www/wedding-backend
+            cd /home/wedding-backend/app
             npm ci --production
-            pm2 restart wedding-backend || pm2 start dist/index.js --name wedding-backend
-            pm2 save
+            sudo chown -R wedding-backend:wedding-backend /home/wedding-backend
+            sudo systemctl restart wedding-backend
