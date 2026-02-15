@@ -4,6 +4,8 @@ import dotenv from 'dotenv';
 import db from './database';
 import { rsvpSchema, musicSuggestionSchema, RsvpInput, MusicSuggestionInput } from './schemas';
 import { ZodError } from 'zod';
+import { requireApiKey } from './middleware/auth';
+import { postRateLimiter } from './middleware/rateLimit';
 
 dotenv.config();
 
@@ -37,12 +39,12 @@ const errorHandler = (err: Error, req: Request, res: Response, next: NextFunctio
 };
 
 // Health check endpoint
-app.get('/api/health', (req: Request, res: Response) => {
+app.get('/api/health', requireApiKey, (req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 // POST /api/rsvp - Submit RSVP
-app.post('/api/rsvp', (req: Request, res: Response, next: NextFunction) => {
+app.post('/api/rsvp', postRateLimiter, (req: Request, res: Response, next: NextFunction) => {
   try {
     const data: RsvpInput = rsvpSchema.parse(req.body);
 
@@ -71,7 +73,7 @@ app.post('/api/rsvp', (req: Request, res: Response, next: NextFunction) => {
 });
 
 // GET /api/rsvp - Get all RSVPs (for admin purposes)
-app.get('/api/rsvp', (req: Request, res: Response) => {
+app.get('/api/rsvp', requireApiKey, (req: Request, res: Response) => {
   const stmt = db.prepare('SELECT * FROM rsvp ORDER BY created_at DESC');
   const rsvps = stmt.all();
 
@@ -95,7 +97,7 @@ app.get('/api/rsvp', (req: Request, res: Response) => {
 });
 
 // POST /api/music-suggestions - Submit a music suggestion
-app.post('/api/music-suggestions', (req: Request, res: Response, next: NextFunction) => {
+app.post('/api/music-suggestions', postRateLimiter, (req: Request, res: Response, next: NextFunction) => {
   try {
     const data: MusicSuggestionInput = musicSuggestionSchema.parse(req.body);
 
@@ -123,7 +125,7 @@ app.post('/api/music-suggestions', (req: Request, res: Response, next: NextFunct
 });
 
 // GET /api/music-suggestions - Get all music suggestions
-app.get('/api/music-suggestions', (req: Request, res: Response) => {
+app.get('/api/music-suggestions', requireApiKey, (req: Request, res: Response) => {
   const stmt = db.prepare('SELECT * FROM music_suggestions ORDER BY created_at DESC');
   const suggestions = stmt.all();
 
