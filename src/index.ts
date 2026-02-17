@@ -1,13 +1,18 @@
+// IMPORTANT: Load environment variables BEFORE importing tracing
+import dotenv from 'dotenv';
+dotenv.config();
+
+// Initialize OpenTelemetry instrumentation BEFORE importing any other modules
+// This ensures all HTTP, Express, and database calls are automatically traced
+import './tracing';
+
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import db from './database';
 import { rsvpSchema, musicSuggestionSchema, RsvpInput, MusicSuggestionInput } from './schemas';
 import { ZodError } from 'zod';
 import { requireApiKey } from './middleware/auth';
 import { postRateLimiter } from './middleware/rateLimit';
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -37,6 +42,34 @@ const errorHandler = (err: Error, req: Request, res: Response, next: NextFunctio
     error: 'Internal server error',
   });
 };
+
+// OTLP proxy for frontend traces (browsers can't send directly due to CORS)
+app.post('/api/otlp/v1/traces', async (req: Request, res: Response) => {
+  const otlpEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+  const otlpHeaders = process.env.OTLP_HEADERS;
+
+  if (!otlpEndpoint) {
+    return res.status(503).json({ error: 'OTLP endpoint not configured' });
+  }
+
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(otlpHeaders ? JSON.parse(otlpHeaders) : {}),
+    };
+
+    const response = await fetch(`${otlpEndpoint}/v1/traces`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(req.body),
+    });
+
+    res.status(response.status).send(await response.text());
+  } catch (err) {
+    console.error('OTLP proxy error:', err);
+    res.status(502).json({ error: 'Failed to forward traces' });
+  }
+});
 
 // Health check endpoint
 app.get('/api/health', requireApiKey, (req: Request, res: Response) => {
