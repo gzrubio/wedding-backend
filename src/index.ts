@@ -9,7 +9,7 @@ import './tracing';
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import db from './database';
-import { rsvpSchema, musicSuggestionSchema, RsvpInput, MusicSuggestionInput } from './schemas';
+import { rsvpSchema, musicSuggestionSchema, madridRsvpSchema, RsvpInput, MusicSuggestionInput, MadridRsvpInput } from './schemas';
 import { ZodError } from 'zod';
 import { requireApiKey } from './middleware/auth';
 import { postRateLimiter } from './middleware/rateLimit';
@@ -160,6 +160,106 @@ app.post('/api/music-suggestions', postRateLimiter, (req: Request, res: Response
 // GET /api/music-suggestions - Get all music suggestions
 app.get('/api/music-suggestions', requireApiKey, (req: Request, res: Response) => {
   const stmt = db.prepare('SELECT * FROM music_suggestions ORDER BY created_at DESC');
+  const suggestions = stmt.all();
+
+  const formattedSuggestions = suggestions.map((s: any) => ({
+    id: s.id,
+    songName: s.song_name,
+    artist: s.artist,
+    link: s.link,
+    createdAt: s.created_at,
+  }));
+
+  res.json({
+    success: true,
+    data: formattedSuggestions,
+    total: formattedSuggestions.length,
+  });
+});
+
+// POST /api/madrid/rsvp - Submit Madrid event RSVP
+app.post('/api/madrid/rsvp', postRateLimiter, (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const data: MadridRsvpInput = madridRsvpSchema.parse(req.body);
+
+    const stmt = db.prepare(`
+      INSERT INTO madrid_rsvp (name, can_attend, dietary_restrictions, companions)
+      VALUES (?, ?, ?, ?)
+    `);
+
+    const result = stmt.run(
+      data.name,
+      data.canAttend ? 1 : 0,
+      data.dietaryRestrictions || null,
+      data.companions || null
+    );
+
+    console.log(`Madrid RSVP received: ${data.name} - ${data.canAttend ? 'Attending' : 'Not attending'}`);
+
+    res.status(201).json({
+      success: true,
+      message: 'RSVP submitted successfully',
+      id: result.lastInsertRowid,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/madrid/rsvp - Get all Madrid event RSVPs (for admin purposes)
+app.get('/api/madrid/rsvp', requireApiKey, (req: Request, res: Response) => {
+  const stmt = db.prepare('SELECT * FROM madrid_rsvp ORDER BY created_at DESC');
+  const rsvps = stmt.all();
+
+  const formattedRsvps = rsvps.map((rsvp: any) => ({
+    id: rsvp.id,
+    name: rsvp.name,
+    canAttend: rsvp.can_attend === 1,
+    dietaryRestrictions: rsvp.dietary_restrictions,
+    companions: rsvp.companions,
+    createdAt: rsvp.created_at,
+  }));
+
+  res.json({
+    success: true,
+    data: formattedRsvps,
+    total: formattedRsvps.length,
+    attending: formattedRsvps.filter((r: any) => r.canAttend).length,
+    notAttending: formattedRsvps.filter((r: any) => !r.canAttend).length,
+  });
+});
+
+// POST /api/madrid/music-suggestions - Submit a Madrid event music suggestion
+app.post('/api/madrid/music-suggestions', postRateLimiter, (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const data: MusicSuggestionInput = musicSuggestionSchema.parse(req.body);
+
+    const stmt = db.prepare(`
+      INSERT INTO madrid_music_suggestions (song_name, artist, link)
+      VALUES (?, ?, ?)
+    `);
+
+    const result = stmt.run(
+      data.songName,
+      data.artist,
+      data.link || null
+    );
+
+    console.log(`Madrid music suggestion received: "${data.songName}" by ${data.artist}`);
+
+    res.status(201).json({
+      success: true,
+      message: 'Music suggestion submitted successfully',
+      id: result.lastInsertRowid,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/madrid/music-suggestions - Get all Madrid event music suggestions
+app.get('/api/madrid/music-suggestions', requireApiKey, (req: Request, res: Response) => {
+  const stmt = db.prepare('SELECT * FROM madrid_music_suggestions ORDER BY created_at DESC');
   const suggestions = stmt.all();
 
   const formattedSuggestions = suggestions.map((s: any) => ({

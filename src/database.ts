@@ -25,6 +25,23 @@ db.exec(`
     link TEXT,
     created_at TEXT DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS madrid_rsvp (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    can_attend INTEGER NOT NULL,
+    dietary_restrictions TEXT,
+    companions TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS madrid_music_suggestions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    song_name TEXT NOT NULL,
+    artist TEXT NOT NULL,
+    link TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
 `);
 
 export default db;

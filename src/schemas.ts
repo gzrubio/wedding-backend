@@ -13,5 +13,13 @@ export const musicSuggestionSchema = z.object({
   link: z.string().url().max(500).nullable().optional().or(z.literal('')),
 });
 
+export const madridRsvpSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(200),
+  canAttend: z.boolean(),
+  dietaryRestrictions: z.string().max(1000).nullable().optional(),
+  companions: z.string().max(500).nullable().optional(),
+});
+
 export type RsvpInput = z.infer<typeof rsvpSchema>;
 export type MusicSuggestionInput = z.infer<typeof musicSuggestionSchema>;
+export type MadridRsvpInput = z.infer<typeof madridRsvpSchema>;
